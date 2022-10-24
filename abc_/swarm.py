@@ -1,3 +1,5 @@
+import numpy
+
 from abc_.food_source import FoodSource
 from jsp.JSPInstance import JSPInstance
 import jsp.graph_util as gu
@@ -9,6 +11,7 @@ import numpy as np
 import copy
 import random
 import time
+
 
 # from numba import jit
 
@@ -91,7 +94,9 @@ class ABC(object):
         :param opids:
         :return:
         '''
-        sol = np.arange(JSPInstance.number_of_tasks).tolist()
+        sol = np.arange(JSPInstance.number_of_tasks+JSPInstance.number_of_jobs).reshape(JSPInstance.number_of_jobs, -1)
+        sol = numpy.delete(sol, 0, axis=1).flatten().tolist()
+
         sol = np.array(mu.cut_in_line(sol, opids))[:, 0].tolist()
         return sol
 
@@ -106,7 +111,7 @@ class ABC(object):
         g_list = copy.deepcopy(source.g_list)
         opids = copy.deepcopy(source.opIDsOnMchs)
 
-        cps, mss = gu.get_cps_mss_by_group(JSPInstance.dur, source.g_list, source.opIDsOnMchs, JSPInstance.groups)
+        cps, mss = gu.get_cps_mss_by_group(JSPInstance.release_dur, source.g_list, source.opIDsOnMchs, JSPInstance.groups)
 
         # 找各组的关键块
         cbss = []
@@ -134,6 +139,7 @@ class ABC(object):
                     g_list, opids = gu.mid2start(before_list, g_list, opids, mch)
                 else:  # 移到尾
                     g_list, opids = gu.mid2end(before_list, g_list, opids, JSPInstance.last_col, mch)
+
         return g_list, opids
 
     def fi(self, current_solution_index):
@@ -152,7 +158,7 @@ class ABC(object):
             for i in range(3):
                 improved = True
                 while improved:
-                    cps, mss = gu.get_cps_mss_by_group(JSPInstance.dur, g_list, opids, JSPInstance.groups)
+                    cps, mss = gu.get_cps_mss_by_group(JSPInstance.release_dur, g_list, opids, JSPInstance.groups)
                     ms = sum(mss)
 
                     # 获取每组的关键块
@@ -189,7 +195,7 @@ class ABC(object):
                             g_list = gu.invert(v1, v2, g_list, JSPInstance.last_col)
                             opids = gu.invert_opid(v1, v2, opids, mch)
 
-                        cps_new, mss_new = gu.get_cps_mss_by_group(JSPInstance.dur, g_list, opids, JSPInstance.groups)
+                        cps_new, mss_new = gu.get_cps_mss_by_group(JSPInstance.release_dur, g_list, opids, JSPInstance.groups)
 
                         if not mss_new == -1 and sum(mss_new) < ms:
                             ms = sum(mss_new)
@@ -212,8 +218,8 @@ class ABC(object):
         :param new_opids: 新机器-操作阵
         :return: fitness更大解 （邻接表，机器-操作阵，fitness，是否提升）
         '''
-        fitness = self.fitness(JSPInstance.dur, current_solution_g_list, current_opids, JSPInstance.groups)
-        fitness_new = self.fitness(JSPInstance.dur, new_solution_g_list, new_opids, JSPInstance.groups)
+        fitness = self.fitness(JSPInstance.release_dur, current_solution_g_list, current_opids, JSPInstance.groups)
+        fitness_new = self.fitness(JSPInstance.release_dur, new_solution_g_list, new_opids, JSPInstance.groups)
         if fitness_new > fitness:
             return new_solution_g_list, new_opids, fitness_new, True
         else:
@@ -262,29 +268,31 @@ class ABC(object):
         for i in range(self.employed_bees):
             food_source = self.food_sources[i]
             '''底下两行给fi'''
-            # g_list_new, opids_new, fitness_new = self.fi(i)
-            # self.set_solution(food_source, g_list_new, opids_new, fitness_new)
+            g_list_new, opids_new, fitness_new = self.fi(i)
+            self.set_solution_fi(food_source, g_list_new, opids_new, fitness_new)
             '''底下三行给n7'''
-            g_list_new, opids_new = self.generate_solution_n7(i)
-            g_list_best, opids_best, fitness_best, improved = self.best_solution_n7(food_source.g_list, g_list_new, food_source.opIDsOnMchs, opids_new)
-            # 如果没变，trials+1 尝试替换的次数，到达一定量丢弃
-            self.set_solution_n7(food_source, g_list_best, opids_best, fitness_best, improved)
+            # g_list_new, opids_new = self.generate_solution_n7(i)
+            # g_list_best, opids_best, fitness_best, improved = self.best_solution_n7(food_source.g_list, g_list_new,
+            #                                                                         food_source.opIDsOnMchs, opids_new)
+            # # 如果没变，trials+1 尝试替换的次数，到达一定量丢弃
+            # self.set_solution_n7(food_source, g_list_best, opids_best, fitness_best, improved)
 
     def onlooker_bees_stage(self):
         # 对每一只旁观者，根据fitness权重，随机选一个解生成新解，看是否最优
         for i in range(self.onlooker_bees):
-            probabilities = [self.probability(fs) for fs in self.food_sources] # 算权重
+            probabilities = [self.probability(fs) for fs in self.food_sources]  # 算权重
             selected_index = self.selection(range(len(self.food_sources)), probabilities)
             selected_source = self.food_sources[selected_index]
             '''底下两行给fi'''
-            # g_list_new, opids_new, fitness_new = self.fi(selected_index)
-            # self.set_solution_fi(selected_source, g_list_new, opids_new, fitness_new)
+            g_list_new, opids_new, fitness_new = self.fi(selected_index)
+            self.set_solution_fi(selected_source, g_list_new, opids_new, fitness_new)
             '''底下三行给n7'''
-            g_list_new, opids_new = self.generate_solution_n7(selected_index)
-            g_list_best, opids_best, fitness_best, improved = self.best_solution_n7(selected_source.g_list, g_list_new, selected_source.opIDsOnMchs,
-                                                            opids_new)
+            # g_list_new, opids_new = self.generate_solution_n7(selected_index)
+            # g_list_best, opids_best, fitness_best, improved = self.best_solution_n7(selected_source.g_list, g_list_new,
+            #                                                                         selected_source.opIDsOnMchs,
+            #                                                                         opids_new)
             # 如果没变，trials+1 尝试替换的次数，到达一定量丢弃
-            self.set_solution_n7(selected_source, g_list_best, opids_best, fitness_best, improved)
+            # self.set_solution_n7(selected_source, g_list_best, opids_best, fitness_best, improved)
 
     def scout_bees_stage(self):
         for i in range(self.employed_bees):
@@ -298,24 +306,23 @@ class ABC(object):
         t = time.time()
         self.initialize()
         best_fs = self.best_source()
-        min_ms = sum(gu.get_cps_mss_by_group(JSPInstance.dur, best_fs.g_list, best_fs.opIDsOnMchs,
+        min_ms = sum(gu.get_cps_mss_by_group(JSPInstance.release_dur, best_fs.g_list, best_fs.opIDsOnMchs,
                                              JSPInstance.groups)[1])
         print(min_ms)
         print('初始ms ', )
         print('initialize ', time.time() - t)
 
-        for nrun in range(1, self.nruns+1):
+        for nrun in range(1, self.nruns + 1):
             t = time.time()
             self.employed_bees_stage()
             self.onlooker_bees_stage()
             self.scout_bees_stage()
             best_fs = self.best_source()
-            min_ms = sum(gu.get_cps_mss_by_group(JSPInstance.dur, best_fs.g_list, best_fs.opIDsOnMchs,
+            min_ms = sum(gu.get_cps_mss_by_group(JSPInstance.release_dur, best_fs.g_list, best_fs.opIDsOnMchs,
                                                  JSPInstance.groups)[1])
             print(min_ms)
-            print('一轮循环，', time.time() - t)
 
         best_fs = self.best_source()
-        print('一个解：', time.time()-t)
+        print('一个解：', time.time() - t)
 
         return best_fs

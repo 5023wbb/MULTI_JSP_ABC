@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import random as rand
+import jsp.matrix_util as mu
 
 
 def top_sort(g):
@@ -52,8 +53,8 @@ def get_critical_path_and_makespan_topSort(topStack, weights, opIDsOnMchs, g):
     etv = {}  # 最早开始时间
 
     for i in topStack:
-        row = i // len(weights[0])
-        col = i % len(weights[0])
+        row = i // (len(weights[0]))
+        col = i % (len(weights[0]))
         # 找i的前驱
         preds = []
         for jj in range(len(g)):
@@ -86,8 +87,8 @@ def get_critical_path_and_makespan_topSort(topStack, weights, opIDsOnMchs, g):
         else:
             min_time = max_val
             for suceed in suceeds:
-                row = suceed // len(weights[0])
-                col = suceed % len(weights[0])
+                row = suceed // (len(weights[0]))
+                col = suceed % (len(weights[0]))
                 min_time = ltv[suceed] - weights[row][col] if min_time > ltv[suceed] - weights[row][
                     col] else min_time
             ltv[i] = min_time
@@ -96,7 +97,8 @@ def get_critical_path_and_makespan_topSort(topStack, weights, opIDsOnMchs, g):
 
     for key in etv:
         if etv[key] == ltv[key]:
-            critical_path.append([key, np.where(opIDsOnMchs == key)[0][0]])
+            if not key % (len(opIDsOnMchs)+1) == 0:
+                critical_path.append([key, np.where(opIDsOnMchs == key)[0][0]])
             # critical_path.append(key)
     return critical_path, max_val, etv
 
@@ -470,4 +472,5 @@ if __name__ == '__main__':
          [32, 0, 28, 9, 15, 23]]
     )
 
-    print(get_cps_mss_by_group(processing_time, g, opids, [[0, 1, 2, 3, 4, 5]]))
+    groups = mu.get_groups(3, 6)
+    print(get_cps_mss_by_group(processing_time, g, opids, groups))

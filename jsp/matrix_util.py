@@ -62,7 +62,7 @@ def cut_in_line(partial_solution, opIDsOnMchs):
                 for j in range(len(index_list)):
                     partial_solution[index_list[j]] = i[j]
                 break
-    initial_sequence = np.arange(len(partial_solution)).reshape(len(opIDsOnMchs[0]), len(opIDsOnMchs))
+    initial_sequence = np.array(partial_solution).reshape(len(opIDsOnMchs[0]), len(opIDsOnMchs))
     for i in initial_sequence:
         temp_index = len(partial_solution)
         for action in i:
@@ -92,15 +92,7 @@ def get_groups(group_num, number_of_jobs):
     '''
 
     indices = [i for i in range(number_of_jobs)]
-    if group_num == 1:
-        groups = [indices]
-    else:
-        groups = []
-        random.shuffle(indices)
-        num =number_of_jobs / group_num
-        for i in range(group_num):
-            start, end = int(i * num), int(i * num + num - 1)
-            groups.append(indices[start:end + 1])
+    groups = np.array_split(indices, group_num)
     return groups
 
 
@@ -111,7 +103,8 @@ if __name__ == '__main__':
                             [30, 19, 27, 13, 10, -6],
                             [25, 20, 9, 15, -6, -6],
                             [24, 12, 8, 32, 0, -6]])
-    action = 35
+    action = 33
     precd, succd = getActionNbghs(action, opIDsOnMchs)
     print(precd, succd)
 
+    # print(get_groups(4, 18))
