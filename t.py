@@ -48,11 +48,15 @@ if __name__ == '__main__':
     for i, data in enumerate(dataset):
         np.random.seed(RELEASE_TIME_SEED)
         release_time = np.random.randint(30 * N_JOBS_N, size=N_JOBS_N)
+        release_time[np.random.randint(N_JOBS_N)] = 0
         JSPInstance.reset(data, groups, release_time)
 
-        abc = ABC(10, 20)
+        abc = ABC(30, 10)
         best_solution = abc.optimize()
         print('OPIDS\n', best_solution.opIDsOnMchs)
-        min_ms = sum(gu.get_cps_mss_by_group(JSPInstance.release_dur, best_solution.g_list, best_solution.opIDsOnMchs, JSPInstance.groups)[1])
+        cps, mss = gu.get_cps_mss_by_group(JSPInstance.release_dur, best_solution.g_list, best_solution.opIDsOnMchs, JSPInstance.groups)
+        print('cps\n', cps)
+        print('mss, ', mss)
+        min_ms = sum(mss)
 
         print('最终ms，', min_ms)

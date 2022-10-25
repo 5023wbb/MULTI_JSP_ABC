@@ -149,7 +149,7 @@ def get_cps_mss_by_group(weights, g_list, opIDsOnMchs, groups):
     cps.append(cp0)
     mss.append(ms0)
     for group in groups:
-        if cp0[-1][0] // len(opIDsOnMchs[0]) in group:
+        if cp0[-1][0] // (len(opIDsOnMchs[0])+1) in group:
             continue
         else:
             g = copy.deepcopy(g_list)
@@ -157,7 +157,7 @@ def get_cps_mss_by_group(weights, g_list, opIDsOnMchs, groups):
             max_end = -1
             # 获取该组ms最大的最后一道工序
             for idx in group:
-                end = idx * len(opIDsOnMchs) + len(opIDsOnMchs) - 1
+                end = idx * (len(opIDsOnMchs)+1) + len(opIDsOnMchs)
                 if max_etv < etv0[end]:
                     max_end = end
                     max_etv = etv0[end]

@@ -306,10 +306,14 @@ class ABC(object):
         t = time.time()
         self.initialize()
         best_fs = self.best_source()
-        min_ms = sum(gu.get_cps_mss_by_group(JSPInstance.release_dur, best_fs.g_list, best_fs.opIDsOnMchs,
-                                             JSPInstance.groups)[1])
-        print(min_ms)
-        print('初始ms ', )
+        cps, mss = gu.get_cps_mss_by_group(JSPInstance.release_dur, best_fs.g_list, best_fs.opIDsOnMchs,
+                                             JSPInstance.groups)
+
+        min_ms = sum(mss)
+
+        # print('初始cps\n', cps)
+        # print('初始mss ', mss)
+        print('初始ms ', min_ms)
         print('initialize ', time.time() - t)
 
         for nrun in range(1, self.nruns + 1):
