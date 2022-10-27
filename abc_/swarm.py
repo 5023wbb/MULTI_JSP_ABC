@@ -42,14 +42,15 @@ class ABC(object):
         :return:
         '''
         # 每个雇佣蜂一个蜜源
-        self.food_sources = [self.create_foodsource() for i in range(self.employed_bees)]
+        self.food_sources = [self.create_foodsource(True) for i in range(self.employed_bees-1)]
+        self.food_sources.append(self.create_foodsource(False))
 
-    def create_foodsource(self):
+    def create_foodsource(self, random_flag):
         '''
         初始化一个解
         :return:
         '''
-        sol, g_list, opIDsOnMchs, ms = JSPInstance.generate_rand_solution()
+        sol, g_list, opIDsOnMchs, ms = JSPInstance.generate_rand_solution(random_flag)
         fitness = 1 / (1 + ms)
         return FoodSource(sol, fitness, opIDsOnMchs, g_list)
 
@@ -115,8 +116,14 @@ class ABC(object):
 
         # 找各组的关键块
         cbss = []
+        cbss_decode = []
         for cp in cps:
-            cbss.append(gu.find_block(cp, g_list))
+            blocks, blocks_decode = gu.find_block(cp, g_list, JSPInstance.number_of_machines)
+            cbss.append(blocks)
+            cbss_decode.append(blocks_decode)
+
+        # print('cbss: ', cbss)
+        print('decode:', cbss_decode)
 
         critical_blocks = rand.choice(cbss)  # 随机选择一组的关键路径上的关键块
 
@@ -163,8 +170,11 @@ class ABC(object):
 
                     # 获取每组的关键块
                     cbss = []
+                    cbss_decode = []
                     for cp in cps:
-                        cbss.append(gu.find_block(cp, g_list))
+                        blocks, blocks_decode = gu.find_block(cp, g_list, JSPInstance.number_of_machines)
+                        cbss.append(blocks)
+                        cbss_decode.append(blocks_decode)
                     critical_blocks = cbss[group]
 
                     if len(critical_blocks) == 0: break
@@ -268,14 +278,14 @@ class ABC(object):
         for i in range(self.employed_bees):
             food_source = self.food_sources[i]
             '''底下两行给fi'''
-            g_list_new, opids_new, fitness_new = self.fi(i)
-            self.set_solution_fi(food_source, g_list_new, opids_new, fitness_new)
+            # g_list_new, opids_new, fitness_new = self.fi(i)
+            # self.set_solution_fi(food_source, g_list_new, opids_new, fitness_new)
             '''底下三行给n7'''
-            # g_list_new, opids_new = self.generate_solution_n7(i)
-            # g_list_best, opids_best, fitness_best, improved = self.best_solution_n7(food_source.g_list, g_list_new,
-            #                                                                         food_source.opIDsOnMchs, opids_new)
-            # # 如果没变，trials+1 尝试替换的次数，到达一定量丢弃
-            # self.set_solution_n7(food_source, g_list_best, opids_best, fitness_best, improved)
+            g_list_new, opids_new = self.generate_solution_n7(i)
+            g_list_best, opids_best, fitness_best, improved = self.best_solution_n7(food_source.g_list, g_list_new,
+                                                                                    food_source.opIDsOnMchs, opids_new)
+            # 如果没变，trials+1 尝试替换的次数，到达一定量丢弃
+            self.set_solution_n7(food_source, g_list_best, opids_best, fitness_best, improved)
 
     def onlooker_bees_stage(self):
         # 对每一只旁观者，根据fitness权重，随机选一个解生成新解，看是否最优
@@ -299,7 +309,7 @@ class ABC(object):
             food_source = self.food_sources[i]
 
             if food_source.trials > self.trials_limit:
-                food_source = self.create_foodsource()
+                food_source = self.create_foodsource(True)
 
     # @jit
     def optimize(self):

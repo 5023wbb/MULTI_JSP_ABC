@@ -8,7 +8,7 @@ from jsp import graph_util as gu
 from jsp import matrix_util as mu
 
 parser = argparse.ArgumentParser(description='Arguments for test_learned_on_benchmark')
-parser.add_argument('--Gn', type=int, default=5, help='Number of groups')
+parser.add_argument('--Gn', type=int, default=3, help='Number of groups')
 parser.add_argument('--Nn_j', type=int, default=15, help='Number of jobs on which to be loaded net are trained')
 parser.add_argument('--Nn_m', type=int, default=15, help='Number of machines on which to be loaded net are trained')
 parser.add_argument('--which_benchmark', type=str, default='tai', help='Which benchmark to test')
@@ -43,20 +43,18 @@ if __name__ == '__main__':
     # dataset = []
 
     for i in range(dataLoaded.shape[0]):
-        dataset.append((dataLoaded[0][0], dataLoaded[0][1]))
+        dataset.append((dataLoaded[i][0], dataLoaded[i][1]))
 
     for i, data in enumerate(dataset):
         np.random.seed(RELEASE_TIME_SEED)
         release_time = np.random.randint(30 * N_JOBS_N, size=N_JOBS_N)
         release_time[np.random.randint(N_JOBS_N)] = 0
         JSPInstance.reset(data, groups, release_time)
-
-        abc = ABC(30, 10)
+        print(JSPInstance.m)
+        abc = ABC(10, 10)
         best_solution = abc.optimize()
         print('OPIDS\n', best_solution.opIDsOnMchs)
         cps, mss = gu.get_cps_mss_by_group(JSPInstance.release_dur, best_solution.g_list, best_solution.opIDsOnMchs, JSPInstance.groups)
-        print('cps\n', cps)
-        print('mss, ', mss)
         min_ms = sum(mss)
 
         print('最终ms，', min_ms)

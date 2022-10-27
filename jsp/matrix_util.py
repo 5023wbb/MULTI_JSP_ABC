@@ -1,6 +1,7 @@
 import numpy as np
 import random
 
+
 def getActionNbghs(action, opIDsOnMchs):
     '''
     获取工序在机器矩阵上的邻居(非黑边)
@@ -36,7 +37,7 @@ def uni_instance_gen(n_j, n_m, low, high):
     :return:
     '''
     times = np.random.randint(low=low, high=high, size=(n_j, n_m))
-    machines = np.expand_dims(np.arange(1, n_m+1), axis=0).repeat(repeats=n_j, axis=0)
+    machines = np.expand_dims(np.arange(1, n_m + 1), axis=0).repeat(repeats=n_j, axis=0)
     machines = permute_rows(machines)
     return times, machines
 
@@ -96,15 +97,21 @@ def get_groups(group_num, number_of_jobs):
     return groups
 
 
-if __name__ == '__main__':
-    opIDsOnMchs = np.array([[7, 29, 33, 16, -6, -6],
-                            [6, 18, 28, 34, 2, -6],
-                            [26, 31, 14, 21, 11, 1],
-                            [30, 19, 27, 13, 10, -6],
-                            [25, 20, 9, 15, -6, -6],
-                            [24, 12, 8, 32, 0, -6]])
-    action = 33
-    precd, succd = getActionNbghs(action, opIDsOnMchs)
-    print(precd, succd)
+def id2string(task_id, machine_num):
+    job = task_id // (machine_num + 1) + 1
+    operation = task_id % (machine_num + 1)
+    return 'J_' + str(job) + '_O_' + str(operation)
 
-    # print(get_groups(4, 18))
+
+if __name__ == '__main__':
+    # opIDsOnMchs = np.array([[7, 29, 33, 16, -6, -6],
+    #                         [6, 18, 28, 34, 2, -6],
+    #                         [26, 31, 14, 21, 11, 1],
+    #                         [30, 19, 27, 13, 10, -6],
+    #                         [25, 20, 9, 15, -6, -6],
+    #                         [24, 12, 8, 32, 0, -6]])
+    # action = 33
+    # precd, succd = getActionNbghs(action, opIDsOnMchs)
+    # print(precd, succd)
+
+    print(id2string(2, 15))

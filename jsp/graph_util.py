@@ -103,7 +103,7 @@ def get_critical_path_and_makespan_topSort(topStack, weights, opIDsOnMchs, g):
     return critical_path, max_val, etv
 
 
-def find_block(critical_path, g_list):
+def find_block(critical_path, g_list, machine_num):
     '''
     返回关键块
     :param critical_path: 关键路径
@@ -116,19 +116,27 @@ def find_block(critical_path, g_list):
      关键块要分 [13, 14] 和 [16, 18]
      '''
     blocks = []
+    blocks_decode = []
     temp = -1
     for node in critical_path:
+        node_decode = copy.deepcopy(node)
         # 在同一机器
         if node[1] == temp:
             # 且有连边
             if node[0] in g_list[blocks[-1][-1][0]]:
                 blocks[-1].append(node)
+                node_decode[0] = mu.id2string(node[0], machine_num)
+                blocks_decode[-1].append(node_decode)
             else:
                 blocks.append([node])
+                node_decode[0] = mu.id2string(node[0], machine_num)
+                blocks_decode.append(node_decode)
         else:
             blocks.append([node])
+            node_decode[0] = mu.id2string(node[0], machine_num)
+            blocks_decode.append([node_decode])
         temp = node[1]
-    return blocks
+    return blocks, blocks_decode
 
 
 def get_cps_mss_by_group(weights, g_list, opIDsOnMchs, groups):

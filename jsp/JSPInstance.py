@@ -62,7 +62,7 @@ class JSPInstance:
         cls.groups = groups
 
     @classmethod
-    def generate_rand_solution(cls):
+    def generate_rand_solution(cls, random_flag):
         '''
         生成随机解，循环随机获取工序，并更新邻接表和机器-工序矩阵
         :return:
@@ -76,8 +76,21 @@ class JSPInstance:
 
         # 随机采取可行的工序
         for i in range(cls.number_of_tasks):
-            rand_idx = random.choice(indices)
-            action = candidate[rand_idx]
+            if random_flag:
+                # 随机选
+                idx = random.choice(indices)
+
+            # MOPNR
+            else:
+                idx = -1
+                min_done = cls.number_of_machines + 1
+                for index in indices:
+                    done = candidate[index] % (cls.number_of_machines + 1) - 1
+                    if done < min_done:
+                        min_done = done
+                        idx = index
+
+            action = candidate[idx]
             sol.append(action)
 
             # 更新candidate
@@ -87,7 +100,7 @@ class JSPInstance:
             cls.update_by_action(action)
 
             if action % (cls.number_of_machines+1) == cls.number_of_machines:  # 最后一道工序
-                indices.remove(rand_idx)
+                indices.remove(idx)
 
         # 邻接表和opid都有了，获取各组的关键路径和分组最大的ms
         cls.cps, mss = gu.get_cps_mss_by_group(cls.release_dur, cls.g_list, cls.opIDsOnMchs, cls.groups)
@@ -104,7 +117,6 @@ class JSPInstance:
 
         row = action // (cls.number_of_machines + 1)
         col = action % (cls.number_of_machines + 1)
-
         mch_a = cls.m[row][col-1] - 1  # 该工序操作的机器
         mch_situation = cls.opIDsOnMchs[mch_a].tolist()  # 该机器上当前已完工的工件
         idx = mch_situation.index(-cls.number_of_jobs)
