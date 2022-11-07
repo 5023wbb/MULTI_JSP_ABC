@@ -1,4 +1,6 @@
 import copy
+import random
+
 import numpy as np
 import random as rand
 import jsp.matrix_util as mu
@@ -370,7 +372,7 @@ def mid2start(before_list, g_list, opids, mch):
     after_list = np.delete(before_list, to_move_index)
     after_list = np.insert(after_list, 0, to_move)
 
-    not_black_pred = get_not_black_pred(g_list, before_list[0])  # 获取原头元素的非黑边前驱和后继
+    not_black_pred = get_not_black_pred(g_list, before_list[0])  # 获取原头元素的非黑边前驱
     # print('非黑边前驱:', not_black_pred)
 
     ### 新头元素操作
@@ -413,7 +415,7 @@ def mid2end(before_list, g_list, opids, last_col, mch):
     after_list = np.delete(before_list, to_move_index)
     after_list = np.append(after_list, to_move)
 
-    not_black_suced = get_not_black_suced(g_list, before_list[-1], last_col)  # 获取原尾元素的非黑边前驱和后继
+    not_black_suced = get_not_black_suced(g_list, before_list[-1], last_col)  # 获取原尾元素的非黑边后继
     # print('非黑边后继:', not_black_suced)
 
     ### 新尾元素操作
@@ -443,6 +445,236 @@ def mid2end(before_list, g_list, opids, last_col, mch):
     return g_list, opids
 
 
+# 基于代理块的插入
+
+def find_agent_blocks(critical_blocks, opids, groups):
+    '''
+
+    :param critical_blocks: 关键块[[op, mch], [op, mch]... [op,mch]]
+    :param opids:
+    :param groups:
+    :return: 代理块 {开始索引: [j1_op, j2_op], 开始索引: [j3_op, j4_op]...} (j1,j2为同代理，j3,j4为同代理)
+    '''
+    left = 0
+    right = 0
+    cur_agent_block_head = critical_blocks[left]
+    head_group = []
+    agent_blocks = {}
+    for g in groups:
+        if cur_agent_block_head[0] // (len(opids)+1) in g:
+            head_group = g
+            break
+
+    while right < len(critical_blocks):
+        right += 1
+        if right == len(critical_blocks):
+            if right - left >= 2:
+                agent_blocks[left] = np.array(critical_blocks[left:right])[:, 0].tolist()
+            break
+        right_job = critical_blocks[right][0] // (len(opids)+1)
+        if right_job in head_group:
+            continue
+        else:
+            if right - left >= 2:
+                agent_blocks[left] = np.array(critical_blocks[left:right])[:, 0].tolist()
+            left = right
+            cur_agent_block_head = critical_blocks[left]
+            for g in groups:
+                if cur_agent_block_head[0] // (len(opids)+1) in g:
+                    head_group = g
+                    break
+    return agent_blocks
+
+
+def move_agent_block(before_list, g_list, opids, last_col, agent_block, mch):
+    '''
+    将代理块重新插入非原来解的位置
+    :param before_list: 关键块的工序列表
+    :param g_list: 邻接表
+    :param opids: 机器-工序矩阵
+    :param last_col: 最后一道工序的id
+    :param agent_block: {开始索引：[工序id, 工序id...]}
+    :param mch:
+    :return:
+    '''
+    before_list_cp = copy.deepcopy(before_list)
+
+    tasks = list(agent_block.values())[0]  # 代理块里的工序
+
+    # 如果整个关键块是一个代理块，原封不动返回
+    if len(tasks) == len(before_list_cp):
+        return g_list, opids
+
+    agent_start_index_ori = list(agent_block.keys())[0]  # 第一道代理工序在before_list_cp中的索引
+    agent_end_index_ori = agent_start_index_ori + len(tasks) - 1  # 最后一道代理工序在before_list_cp中的索引
+    agent_start = tasks[0]  # 第一道代理工序
+    agent_end = tasks[-1]  # 最后一道代理工序
+
+    for i in tasks:
+        before_list.remove(i)
+
+    if agent_start_index_ori == 0 or agent_end_index_ori == len(before_list_cp) - 1:  # 代理块在头或者尾，插中间
+        if len(before_list) > 1:
+            to_insert_idx = random.randint(1, len(before_list) - 1)
+        else:
+            return g_list, opids
+    else:  # 代理块在中间，插头或者尾
+        if random.random() < 0.5:  # 插头
+            to_insert_idx = 0
+        else:
+            to_insert_idx = len(before_list)
+    for i in tasks:
+        before_list.insert(to_insert_idx, i)
+        to_insert_idx += 1
+    after_list = before_list
+
+    # ### 随机插
+    # # 求插入变换后的操作顺序
+    # for i in tasks:
+    #     before_list.remove(i)
+    # to_insert_idx = agent_start_index_ori
+    # while to_insert_idx == agent_start_index_ori:
+    #     to_insert_idx = random.randint(0, len(before_list))  # 不让插回原来的位置
+    # for i in tasks:
+    #     before_list.insert(to_insert_idx, i)
+    #     to_insert_idx += 1
+    # after_list = before_list
+
+    agent_end_index_ = to_insert_idx - 1  # 最后一道代理工序在after_list中的索引
+    agent_start_index_ = agent_end_index_ - len(tasks) + 1  # 第一道代理工序在after_list中的索引
+
+    # 更新邻接表
+
+    ### 代理块是中间
+    if not agent_start_index_ori == 0 and not agent_end_index_ori == len(before_list_cp) - 1:
+        # 中间的代理块插到头
+        if agent_start_index_ == 0:
+            not_black_pred = get_not_black_pred(g_list, before_list_cp[0])  # 获取原头元素的非黑边前驱
+            # print('非黑边前驱:', not_black_pred)
+
+            ### 新头元素操作
+            if not not_black_pred == -1:  # 如果原头元素有非黑边前驱
+                g_list[not_black_pred].remove(before_list_cp[0])  # 该非黑边前驱的后继表删除原头元素
+                g_list[not_black_pred].append(agent_start)  # 该非黑边前驱的后继表加上新头元素
+            g_list[agent_end].append(before_list_cp[0])  # 代理块最后一道工序后继表加上原头元素
+            g_list[agent_end].remove(before_list_cp[agent_end_index_ori + 1])  # 代理块最后一道工序后继表删除原后继
+
+            # 该元素原前驱操作
+            g_list[before_list_cp[agent_start_index_ori - 1]].append(before_list_cp[agent_end_index_ori + 1])  # 原前驱加上代理块最后一道工序的原后继
+            g_list[before_list_cp[agent_start_index_ori - 1]].remove(agent_start)  # 代理块第一道工序原前驱的后继表删除该工序
+
+        # 中间的代理块插到尾
+        elif agent_end_index_ == len(after_list) - 1:
+            not_black_suced = get_not_black_suced(g_list, before_list_cp[-1], last_col)  # 获取原尾元素的非黑边后继
+            # print('非黑边后继:', not_black_suced)
+
+            ### 新尾元素操作
+            if not not_black_suced == -1:  # 如果原尾元素存在非黑边后继
+                g_list[before_list_cp[-1]].remove(not_black_suced)  # 原尾元素后继表删除非黑边后继
+                g_list[agent_end].append(not_black_suced)  # 代理块最后一道工序后继表加上该非黑边后继
+            g_list[agent_end].remove(before_list_cp[agent_end_index_ori + 1])  # 代理块最后一道工序后继表删除原后继
+
+            ### 原尾元素操作
+            g_list[before_list_cp[-1]].append(agent_start)  # 原尾元素后继表加上代理块头
+
+            ### 原前驱操作
+            g_list[before_list_cp[agent_start_index_ori - 1]].append(before_list_cp[agent_end_index_ori + 1])  # 代理块原前驱加上代理块尾的原后继
+            g_list[before_list_cp[agent_start_index_ori - 1]].remove(agent_start)  # 代理块原前驱后继表删除代理块头
+
+        # 中间的代理块插到另一个中间
+        else:
+            ### 代理块原前驱操作
+            g_list[before_list_cp[agent_start_index_ori-1]].remove(agent_start)  # 代理块原前驱删除代理块头
+            g_list[before_list_cp[agent_start_index_ori-1]].append(before_list_cp[agent_end_index_ori+1])  # 代理块原前驱加上代理块原后继
+            ### 代理块新前驱操作
+            g_list[after_list[agent_start_index_-1]].remove(after_list[agent_end_index_+1])  # 代理块新前驱删除原后继
+            g_list[after_list[agent_start_index_-1]].append(agent_start)  # 代理块新前驱加上代理块头
+            ### 代理块尾操作
+            g_list[agent_end].remove(before_list_cp[agent_end_index_ori+1])  # 代理块尾删除原后继
+            g_list[agent_end].append(after_list[agent_end_index_+1])# 代理块尾加上新后继
+
+    ### 代理块是开头
+    elif agent_start_index_ori == 0:
+        # 开头的代理块插到尾巴
+        if agent_end_index_ == len(after_list) - 1:
+            # 代理块头是否有非黑边前驱
+            not_black_pred = get_not_black_pred(g_list, agent_start)
+            if not not_black_pred == -1:  # 如果有
+                g_list[not_black_pred].append(before_list_cp[agent_end_index_ori+1])  # 该非黑边前驱加上新头元素
+                g_list[not_black_pred].remove(agent_start)  # 该非黑边前驱删除代理块头
+
+            # 原尾元素是否有非黑边后继
+            not_black_suced = get_not_black_suced(g_list, before_list_cp[-1], last_col)
+            if not not_black_suced == -1: # 如果有
+                g_list[before_list_cp[-1]].remove(not_black_suced)  # 原尾元素删除该非黑边后继
+                g_list[agent_end].append(not_black_suced)  # 代理块尾加上该非黑边后继
+
+            g_list[before_list_cp[-1]].append(agent_start)  # 原尾元素后继表加上代理块头
+            g_list[agent_end].remove(before_list_cp[agent_end_index_ori+1])  # 代理块尾后继表删除原代理块后继
+
+        # 开头的代理块插中间
+        else:
+            # 代理块头是否有非黑边前驱
+            not_black_pred = get_not_black_pred(g_list, agent_start)
+            if not not_black_pred == -1:  # 如果有
+                g_list[not_black_pred].append(before_list_cp[agent_end_index_ori + 1])  # 该非黑边前驱加上新头元素
+                g_list[not_black_pred].remove(agent_start)  # 该非黑边前驱删除代理块头
+
+            ### 代理块尾操作
+            g_list[agent_end].remove(before_list_cp[agent_end_index_ori+1])  # 代理块尾删除代理块原后继
+            g_list[agent_end].append(after_list[agent_end_index_+1])  # 代理块尾加上新后继
+            ### 代理块新前驱操作
+            g_list[after_list[agent_start_index_-1]].remove(after_list[agent_end_index_+1])  # 删除原后继
+            g_list[after_list[agent_end_index_-1]].append(agent_start)  # 加上代理块头
+
+    ### 代理块是尾巴
+    else:
+        # 尾巴代理块插到头
+        if agent_start_index_ == 0:
+            # 原头元素是否有非黑边前驱
+            not_black_pred = get_not_black_pred(g_list, before_list_cp[0])
+            if not not_black_pred == -1: # 如果有
+                g_list[not_black_pred].remove(before_list_cp[0])  # 该非黑边前驱后继表删除原头元素
+                g_list[not_black_pred].append(agent_start)  # 该非黑边前驱后继表加上代理块头
+            # 代理块尾是否有非黑边后继
+            not_black_suced = get_not_black_suced(g_list, agent_end, last_col)
+            if not not_black_suced == -1: # 如果有
+                g_list[agent_end].remove(not_black_suced)  # 代理块尾删除原代理块后继
+                g_list[before_list_cp[agent_start_index_ori-1]].append(not_black_suced)  # 代理块原前驱加上该非黑边后继
+
+            g_list[before_list_cp[agent_start_index_ori-1]].remove(agent_start)  # 代理块原前驱删除代理块头
+            g_list[agent_end].append(before_list_cp[0])  # 代理块尾加上原头元素
+
+        # 尾巴代理块插到中间
+        else:
+            # 代理块尾是否有非黑边后继
+            not_black_suced = get_not_black_suced(g_list, agent_end, last_col)
+            if not not_black_suced == -1:  # 如果有
+                g_list[agent_end].remove(not_black_suced)  # 代理块尾删除该非黑边后继
+                g_list[before_list_cp[agent_start_index_ori-1]].append(not_black_suced)  # 代理块原前驱加上该非黑边后继
+
+            g_list[before_list_cp[agent_start_index_ori-1]].remove(agent_start)  # 代理块原前驱删除代理块头
+            g_list[agent_end].append(after_list[agent_end_index_+1])  # 代理块尾加上新后继
+
+            g_list[after_list[agent_start_index_-1]].remove(after_list[agent_end_index_+1])  # 代理块新前驱删除原后继
+            g_list[after_list[agent_start_index_-1]].append(agent_start)  # 代理块新前驱加上代理块头
+
+    # 更新opids
+    idx = 0
+    job_queue = opids[mch]
+    for i in range(len(job_queue)):
+        if job_queue[i] in after_list:
+            job_queue[i] = after_list[idx]
+            idx = idx + 1
+        if idx == len(after_list):
+            break
+    opids[mch] = job_queue
+
+    # print('插入后\n', mu.opids2String(opids))
+
+    return g_list, opids
+
+
 def adj_to_g(adj):
     '''
     邻接矩阵转化成邻接表
@@ -460,25 +692,9 @@ def adj_to_g(adj):
 
 
 if __name__ == '__main__':
-    g = [[1, 28], [2, 25], [3, 35], [4, 16], [5, 21], [], [7, 26], [8, 29], [9, 14], [10, 15], [11], [], [13, 7],
-         [14, 27], [15], [16, 23], [17], [11], [19, 12], [20, 2], [21, 3], [22, 10], [23, 17], [], [25, 19], [26, 22],
-         [27, 20], [28, 4], [29, 9], [5], [31, 18], [32, 6], [33, 0], [34, 13], [35, 1], [8]]
+     opids = np.arange(36).reshape(6, 6)
+     opids = np.rot90(opids, 1)
+     print(opids)
 
-    processing_time = [[27, 17, 69, 43, 56, 77, ],
-                       [80, 90, 15, 92, 58, 90, ],
-                       [12, 7, 43, 57, 2, 8, ],
-                       [52, 28, 74, 16, 2, 24, ],
-                       [86, 25, 8, 23, 55, 78, ],
-                       [17, 71, 36, 32, 33, 46, ]]
-
-    opids = np.array(
-        [[24, 19, 2, 35, 8, 14],
-         [30, 18, 12, 7, 29, 5],
-         [31, 6, 26, 20, 3, 16],
-         [34, 1, 25, 22, 17, 11],
-         [33, 13, 27, 4, 21, 10],
-         [32, 0, 28, 9, 15, 23]]
-    )
-
-    groups = mu.get_groups(3, 6)
-    print(get_cps_mss_by_group(processing_time, g, opids, groups))
+     critical_blocks = [[5,0], [11,0], [17, 0], [23,0], [29, 0], [35, 0]]
+     print(find_agent_blocks(critical_blocks, opids, groups=[[0,1,3], [2,4,5]]))

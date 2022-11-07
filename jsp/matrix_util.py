@@ -102,16 +102,27 @@ def id2string(task_id, machine_num):
     operation = task_id % (machine_num + 1)
     return 'J_' + str(job) + '_O_' + str(operation)
 
+def opids2String(opids):
+    opids_string = []
+    for row in opids:
+        row_string = []
+        for opid in row:
+            row_string.append(id2string(opid, len(opids)))
+        opids_string.append(row_string)
+    return opids_string
+
+
 
 if __name__ == '__main__':
-    # opIDsOnMchs = np.array([[7, 29, 33, 16, -6, -6],
-    #                         [6, 18, 28, 34, 2, -6],
-    #                         [26, 31, 14, 21, 11, 1],
-    #                         [30, 19, 27, 13, 10, -6],
-    #                         [25, 20, 9, 15, -6, -6],
-    #                         [24, 12, 8, 32, 0, -6]])
+    opIDsOnMchs = np.array([[7, 29, 33, 16, -6, -6],
+                            [6, 18, 28, 34, 2, -6],
+                            [26, 31, 14, 21, 11, 1],
+                            [30, 19, 27, 13, 10, -6],
+                            [25, 20, 9, 15, -6, -6],
+                            [24, 12, 8, 32, 0, -6]])
     # action = 33
     # precd, succd = getActionNbghs(action, opIDsOnMchs)
     # print(precd, succd)
 
-    print(id2string(2, 15))
+    print(id2string(1, 15))
+    # print(opids2String(opIDsOnMchs))

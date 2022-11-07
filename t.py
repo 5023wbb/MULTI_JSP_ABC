@@ -35,23 +35,23 @@ if __name__ == '__main__':
     # dataset.append(uni_instance_gen(n_j=N_JOBS_N, n_m=N_MACHINES_N, low=LOW, high=HIGH))
 
     # dataGen里的数据
-    # dataLoaded = np.load('./DataGen/generatedData' + str(params.Nn_j) + '_' + str(params.Nn_m) + '_Seed' + str(
-    #     params.np_seed_validation) + '.npy')
+    dataLoaded = np.load('./DataGen/generatedData' + str(params.Nn_j) + '_' + str(params.Nn_m) + '_Seed' + str(
+        params.np_seed_validation) + '.npy')
 
     # BenchData数据
-    dataLoaded = np.load('./BenchDataNmpy/' + benchmark + str(N_JOBS_N) + 'x' + str(N_MACHINES_N) + '.npy')
+    # dataLoaded = np.load('./BenchDataNmpy/' + benchmark + str(N_JOBS_N) + 'x' + str(N_MACHINES_N) + '.npy')
     # dataset = []
 
-    for i in range(dataLoaded.shape[0]):
-        dataset.append((dataLoaded[i][0], dataLoaded[i][1]))
+    # for i in range(dataLoaded.shape[0]):
+    dataset.append((dataLoaded[0][0], dataLoaded[0][1]))
 
     for i, data in enumerate(dataset):
         np.random.seed(RELEASE_TIME_SEED)
         release_time = np.random.randint(30 * N_JOBS_N, size=N_JOBS_N)
         release_time[np.random.randint(N_JOBS_N)] = 0
         JSPInstance.reset(data, groups, release_time)
-        print(JSPInstance.m)
-        abc = ABC(10, 10)
+        print('m\n', JSPInstance.m)
+        abc = ABC(10, 200)
         best_solution = abc.optimize()
         print('OPIDS\n', best_solution.opIDsOnMchs)
         cps, mss = gu.get_cps_mss_by_group(JSPInstance.release_dur, best_solution.g_list, best_solution.opIDsOnMchs, JSPInstance.groups)
